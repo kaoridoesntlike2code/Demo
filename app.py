@@ -26,14 +26,17 @@ st.markdown("""
 
 # --- 4. 初始化對話狀態 ---
 if "messages" not in st.session_state:
-    # 最新版 SDK 改用 messages 列表來管理歷史
+    # 修改格式：必須包含 'role' 和 'parts'，且 parts 是個 list
     st.session_state.messages = [
-        {"role": "user", "content": "妳是神祕酒保。優雅、感性，在 10 題內探測依戀類型。第 10 題邀請至 6/4 松菸展覽。請用繁體中文。"}
+        {
+            "role": "user", 
+            "parts": [{"text": "妳是神祕酒保。優雅、感性，在 10 題內探測依戀類型。第 10 題邀請至 6/4 松菸展覽。請用繁體中文。"}]
+        }
     ]
     st.session_state.turn_count = 0
     st.session_state.last_response = "「歡迎推開這扇門。在調製第一杯酒前，我想知道，你通常在什麼樣的瞬間，會覺得自己需要一個安靜的角落？」"
 
-# --- 5. 介面渲染 ---
+# --- 5. 介面渲染與對話邏輯 ---
 st.markdown('<div class="chat-container">', unsafe_allow_html=True)
 st.markdown(f'<div class="dialog-text">{st.session_state.last_response}</div>', unsafe_allow_html=True)
 
@@ -42,17 +45,27 @@ if st.session_state.turn_count < 10:
     
     if user_input:
         st.session_state.turn_count += 1
-        st.session_state.messages.append({"role": "user", "content": user_input})
+        
+        # 這裡也要更新為新的格式
+        user_message = {"role": "user", "parts": [{"text": user_input}]}
+        st.session_state.messages.append(user_message)
         
         with st.spinner("酒保正在思考..."):
-            # 使用最新的 generate_content 語法
-            response = client.models.generate_content(
-                model="gemini-1.5-flash",
-                contents=st.session_state.messages
-            )
-            st.session_state.last_response = response.text
-            st.session_state.messages.append({"role": "model", "content": response.text})
-            st.rerun()
+            try:
+                response = client.models.generate_content(
+                    model="gemini-1.5-flash",
+                    contents=st.session_state.messages
+                )
+                
+                # 取得 AI 的回覆文字
+                ai_text = response.text
+                st.session_state.last_response = ai_text
+                
+                # 將 AI 的回覆也存入歷史紀錄（維持正確格式）
+                st.session_state.messages.append({"role": "model", "parts": [{"text": ai_text}]})
+                st.rerun()
+            except Exception as e:
+                st.error(f"抱歉，酒保好像分神了... 錯誤原因: {e}")
 else:
     st.markdown('<div class="status-text">酒保已為妳調好最後一杯酒，期待 6/4 與妳在松菸相見。</div>', unsafe_allow_html=True)
 

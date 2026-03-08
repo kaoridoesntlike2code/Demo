@@ -1,5 +1,6 @@
 import streamlit as st
 from google import genai
+from google.genai import types
 
 # --- 1. 頁面基本設定 ---
 st.set_page_config(page_title="Inner Bar 心之鎖向", layout="centered")
@@ -26,12 +27,16 @@ st.markdown("""
 
 # --- 4. 初始化對話狀態 ---
 if "messages" not in st.session_state:
-    # 修改格式：必須包含 'role' 和 'parts'，且 parts 是個 list
+    # 修正格式：使用 Pydantic Model 替代 dictionary，以符合 google.genai SDK 規範
     st.session_state.messages = [
-        {
-            "role": "user", 
-            "parts": [{"text": "妳是神祕酒保。優雅、感性，在 10 題內探測依戀類型。第 10 題邀請至 6/4 松菸展覽。請用繁體中文。"}]
-        }
+        types.Content(
+            role="user", 
+            parts=[types.Part.from_text(text="妳是神祕酒保。優雅、感性，在 10 題內探測依戀類型。第 10 題邀請至 6/4 松菸展覽。請用繁體中文。")]
+        ),
+        types.Content(
+            role="model",
+            parts=[types.Part.from_text(text="「歡迎推開這扇門。在調製第一杯酒前，我想知道，你通常在什麼樣的瞬間，會覺得自己需要一個安靜的角落？」")]
+        )
     ]
     st.session_state.turn_count = 0
     st.session_state.last_response = "「歡迎推開這扇門。在調製第一杯酒前，我想知道，你通常在什麼樣的瞬間，會覺得自己需要一個安靜的角落？」"
@@ -46,8 +51,8 @@ if st.session_state.turn_count < 10:
     if user_input:
         st.session_state.turn_count += 1
         
-        # 這裡也要更新為新的格式
-        user_message = {"role": "user", "parts": [{"text": user_input}]}
+        # 這裡也要更新為新的格式 (使用 types.Content)
+        user_message = types.Content(role="user", parts=[types.Part.from_text(text=user_input)])
         st.session_state.messages.append(user_message)
         
         with st.spinner("酒保正在思考..."):
@@ -62,7 +67,8 @@ if st.session_state.turn_count < 10:
                 st.session_state.last_response = ai_text
                 
                 # 將 AI 的回覆也存入歷史紀錄（維持正確格式）
-                st.session_state.messages.append({"role": "model", "parts": [{"text": ai_text}]})
+                ai_message = types.Content(role="model", parts=[types.Part.from_text(text=ai_text)])
+                st.session_state.messages.append(ai_message)
                 st.rerun()
             except Exception as e:
                 st.error(f"抱歉，酒保好像分神了... 錯誤原因: {e}")
